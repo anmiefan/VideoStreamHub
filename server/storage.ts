@@ -58,6 +58,7 @@ export class MemStorage implements IStorage {
       ...insertVideo,
       id,
       uploadedAt: new Date(),
+      thumbnailUrl: insertVideo.thumbnailUrl || null,
     };
     this.videos.set(id, video);
     return video;
@@ -102,6 +103,7 @@ export class MemStorage implements IStorage {
         ...config,
         id,
         isActive: true,
+        rtmpUrl: config.rtmpUrl || null,
       };
       this.streamConfigs.set(id, streamConfig);
       return streamConfig;
@@ -124,6 +126,10 @@ export class MemStorage implements IStorage {
       const streamStatus: StreamStatus = {
         ...status,
         id,
+        viewerCount: status.viewerCount || null,
+        uptime: status.uptime || null,
+        currentVideoId: status.currentVideoId || null,
+        startedAt: status.startedAt || null,
       };
       this.streamStatuses.set(id, streamStatus);
       return streamStatus;

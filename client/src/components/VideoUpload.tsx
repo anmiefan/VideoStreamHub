@@ -26,7 +26,16 @@ export default function VideoUpload() {
       formData.append('title', file.name);
       formData.append('duration', '00:00'); // Will be processed server-side in real implementation
       
-      const response = await apiRequest('POST', '/api/videos', formData);
+      const response = await fetch('/api/videos', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Upload failed');
+      }
+      
       return response.json();
     },
     onSuccess: () => {

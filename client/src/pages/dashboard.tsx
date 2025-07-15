@@ -38,6 +38,7 @@ export default function Dashboard() {
       case 'live': return 'text-success';
       case 'offline': return 'text-gray-500';
       case 'starting': return 'text-warning';
+      case 'paused': return 'text-warning';
       case 'error': return 'text-error';
       default: return 'text-gray-500';
     }
@@ -48,6 +49,7 @@ export default function Dashboard() {
       case 'live': return 'bg-success';
       case 'offline': return 'bg-gray-400';
       case 'starting': return 'bg-warning';
+      case 'paused': return 'bg-warning';
       case 'error': return 'bg-error';
       default: return 'bg-gray-400';
     }
@@ -70,6 +72,7 @@ export default function Dashboard() {
                   <span className={getStatusColor(streamStatus?.status || 'offline')}>
                     {streamStatus?.status === 'live' ? 'Live' : 
                      streamStatus?.status === 'starting' ? 'Starting' :
+                     streamStatus?.status === 'paused' ? 'Paused' :
                      streamStatus?.status === 'error' ? 'Error' : 'Offline'}
                   </span>
                 </div>

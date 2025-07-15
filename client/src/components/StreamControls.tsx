@@ -99,8 +99,8 @@ export default function StreamControls() {
                    pauseStreamMutation.isPending || 
                    restartStreamMutation.isPending;
 
-  const canStart = streamStatus?.status === 'offline' || streamStatus?.status === 'error';
-  const canStop = streamStatus?.status === 'live' || streamStatus?.status === 'starting';
+  const canStart = streamStatus?.status === 'offline' || streamStatus?.status === 'error' || streamStatus?.status === 'paused';
+  const canStop = streamStatus?.status === 'live' || streamStatus?.status === 'starting' || streamStatus?.status === 'paused';
   const canPause = streamStatus?.status === 'live';
   const canRestart = streamStatus?.status === 'error' || streamStatus?.status === 'offline';
 

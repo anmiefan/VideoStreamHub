@@ -39,6 +39,7 @@ export default function StreamStatus() {
       case 'live': return 'text-success';
       case 'offline': return 'text-gray-500';
       case 'starting': return 'text-warning';
+      case 'paused': return 'text-warning';
       case 'error': return 'text-error';
       default: return 'text-gray-500';
     }
@@ -49,6 +50,7 @@ export default function StreamStatus() {
       case 'live': return 'bg-success';
       case 'offline': return 'bg-gray-400';
       case 'starting': return 'bg-warning';
+      case 'paused': return 'bg-warning';
       case 'error': return 'bg-error';
       default: return 'bg-gray-400';
     }
@@ -59,6 +61,7 @@ export default function StreamStatus() {
       case 'live': return 'Live';
       case 'offline': return 'Offline';
       case 'starting': return 'Starting';
+      case 'paused': return 'Paused';
       case 'error': return 'Error';
       default: return 'Unknown';
     }
@@ -101,7 +104,7 @@ export default function StreamStatus() {
 
       {/* Stream Controls */}
       <div className="mt-6 space-y-3">
-        {streamStatus?.status === 'live' && (
+        {(streamStatus?.status === 'live' || streamStatus?.status === 'paused') && (
           <>
             <Button 
               className="w-full bg-error hover:bg-error/90 text-white"
@@ -111,10 +114,12 @@ export default function StreamStatus() {
               <Square className="h-4 w-4 mr-2" />
               Stop Stream
             </Button>
-            <Button variant="outline" className="w-full">
-              <Pause className="h-4 w-4 mr-2" />
-              Pause
-            </Button>
+            {streamStatus?.status === 'live' && (
+              <Button variant="outline" className="w-full">
+                <Pause className="h-4 w-4 mr-2" />
+                Pause
+              </Button>
+            )}
           </>
         )}
         
