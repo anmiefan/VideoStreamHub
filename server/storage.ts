@@ -1,4 +1,6 @@
 import { videos, streamConfigs, streamStatus, type Video, type InsertVideo, type StreamConfig, type InsertStreamConfig, type StreamStatus, type InsertStreamStatus } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Video operations
@@ -18,123 +20,141 @@ export interface IStorage {
   createOrUpdateStreamStatus(status: InsertStreamStatus): Promise<StreamStatus>;
 }
 
-export class MemStorage implements IStorage {
-  private videos: Map<number, Video>;
-  private streamConfigs: Map<number, StreamConfig>;
-  private streamStatuses: Map<number, StreamStatus>;
-  private currentVideoId: number;
-  private currentStreamConfigId: number;
-  private currentStreamStatusId: number;
-
+export class DatabaseStorage implements IStorage {
   constructor() {
-    this.videos = new Map();
-    this.streamConfigs = new Map();
-    this.streamStatuses = new Map();
-    this.currentVideoId = 1;
-    this.currentStreamConfigId = 1;
-    this.currentStreamStatusId = 1;
-    
-    // Initialize default stream status
-    this.createOrUpdateStreamStatus({
-      status: 'offline',
-      viewerCount: 0,
-      uptime: '00:00:00',
-      currentVideoId: null,
-      startedAt: null,
-    });
+    // Initialize default stream status if it doesn't exist
+    this.initializeDefaultStreamStatus();
   }
 
+  private async initializeDefaultStreamStatus(): Promise<void> {
+    try {
+      const existingStatus = await this.getStreamStatus();
+      if (!existingStatus) {
+        await this.createOrUpdateStreamStatus({
+          status: 'offline',
+          viewerCount: 0,
+          uptime: '00:00:00',
+          currentVideoId: null,
+          startedAt: null,
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to initialize default stream status:', error);
+    }
+  }
   async getVideos(): Promise<Video[]> {
-    return Array.from(this.videos.values()).sort((a, b) => a.playlistOrder - b.playlistOrder);
+    const result = await db.select().from(videos).orderBy(videos.playlistOrder);
+    return result;
   }
 
   async getVideo(id: number): Promise<Video | undefined> {
-    return this.videos.get(id);
+    const [video] = await db.select().from(videos).where(eq(videos.id, id));
+    return video || undefined;
   }
 
   async createVideo(insertVideo: InsertVideo): Promise<Video> {
-    const id = this.currentVideoId++;
-    const video: Video = {
-      ...insertVideo,
-      id,
-      uploadedAt: new Date(),
-      thumbnailUrl: insertVideo.thumbnailUrl || null,
-    };
-    this.videos.set(id, video);
+    const [video] = await db
+      .insert(videos)
+      .values({
+        ...insertVideo,
+        thumbnailUrl: insertVideo.thumbnailUrl || null,
+      })
+      .returning();
     return video;
   }
 
   async updateVideo(id: number, updateVideo: Partial<InsertVideo>): Promise<Video | undefined> {
-    const video = this.videos.get(id);
-    if (!video) return undefined;
-    
-    const updatedVideo = { ...video, ...updateVideo };
-    this.videos.set(id, updatedVideo);
-    return updatedVideo;
+    const [video] = await db
+      .update(videos)
+      .set(updateVideo)
+      .where(eq(videos.id, id))
+      .returning();
+    return video || undefined;
   }
 
   async deleteVideo(id: number): Promise<boolean> {
-    return this.videos.delete(id);
+    const result = await db.delete(videos).where(eq(videos.id, id));
+    return (result.rowCount || 0) > 0;
   }
 
   async reorderPlaylist(videoIds: number[]): Promise<void> {
-    videoIds.forEach((id, index) => {
-      const video = this.videos.get(id);
-      if (video) {
-        this.videos.set(id, { ...video, playlistOrder: index });
-      }
-    });
+    for (let i = 0; i < videoIds.length; i++) {
+      await db
+        .update(videos)
+        .set({ playlistOrder: i })
+        .where(eq(videos.id, videoIds[i]));
+    }
   }
 
   async getStreamConfig(): Promise<StreamConfig | undefined> {
-    return Array.from(this.streamConfigs.values()).find(config => config.isActive);
+    const [config] = await db
+      .select()
+      .from(streamConfigs)
+      .where(eq(streamConfigs.isActive, true));
+    return config || undefined;
   }
 
   async createOrUpdateStreamConfig(config: InsertStreamConfig): Promise<StreamConfig> {
-    const existingConfig = Array.from(this.streamConfigs.values()).find(c => c.isActive);
+    const existingConfig = await this.getStreamConfig();
     
     if (existingConfig) {
-      const updatedConfig = { ...existingConfig, ...config };
-      this.streamConfigs.set(existingConfig.id, updatedConfig);
+      const [updatedConfig] = await db
+        .update(streamConfigs)
+        .set({
+          ...config,
+          rtmpUrl: config.rtmpUrl || null,
+        })
+        .where(eq(streamConfigs.id, existingConfig.id))
+        .returning();
       return updatedConfig;
     } else {
-      const id = this.currentStreamConfigId++;
-      const streamConfig: StreamConfig = {
-        ...config,
-        id,
-        isActive: true,
-        rtmpUrl: config.rtmpUrl || null,
-      };
-      this.streamConfigs.set(id, streamConfig);
+      const [streamConfig] = await db
+        .insert(streamConfigs)
+        .values({
+          ...config,
+          isActive: true,
+          rtmpUrl: config.rtmpUrl || null,
+        })
+        .returning();
       return streamConfig;
     }
   }
 
   async getStreamStatus(): Promise<StreamStatus | undefined> {
-    return Array.from(this.streamStatuses.values())[0];
+    const [status] = await db.select().from(streamStatus).limit(1);
+    return status || undefined;
   }
 
   async createOrUpdateStreamStatus(status: InsertStreamStatus): Promise<StreamStatus> {
-    const existingStatus = Array.from(this.streamStatuses.values())[0];
+    const existingStatus = await this.getStreamStatus();
     
     if (existingStatus) {
-      const updatedStatus = { ...existingStatus, ...status };
-      this.streamStatuses.set(existingStatus.id, updatedStatus);
+      const [updatedStatus] = await db
+        .update(streamStatus)
+        .set({
+          ...status,
+          viewerCount: status.viewerCount || null,
+          uptime: status.uptime || null,
+          currentVideoId: status.currentVideoId || null,
+          startedAt: status.startedAt || null,
+        })
+        .where(eq(streamStatus.id, existingStatus.id))
+        .returning();
       return updatedStatus;
     } else {
-      const id = this.currentStreamStatusId++;
-      const streamStatus: StreamStatus = {
-        ...status,
-        id,
-        viewerCount: status.viewerCount || null,
-        uptime: status.uptime || null,
-        currentVideoId: status.currentVideoId || null,
-        startedAt: status.startedAt || null,
-      };
-      this.streamStatuses.set(id, streamStatus);
-      return streamStatus;
+      const [streamStatusRecord] = await db
+        .insert(streamStatus)
+        .values({
+          ...status,
+          viewerCount: status.viewerCount || null,
+          uptime: status.uptime || null,
+          currentVideoId: status.currentVideoId || null,
+          startedAt: status.startedAt || null,
+        })
+        .returning();
+      return streamStatusRecord;
     }
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

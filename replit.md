@@ -100,4 +100,21 @@ The application uses three main database tables:
 - `npm run start`: Start production server
 - `npm run db:push`: Push database schema changes
 
+## Recent Changes: Latest modifications with dates
+
+### January 15, 2025
+- **Database Integration**: Migrated from in-memory storage to PostgreSQL database
+  - Created `server/db.ts` with Neon serverless PostgreSQL connection
+  - Replaced `MemStorage` with `DatabaseStorage` in `server/storage.ts`
+  - Updated all CRUD operations to use Drizzle ORM with proper database queries
+  - Ran `npm run db:push` to create database tables
+  - Added automatic stream status initialization for new databases
+
+### January 15, 2025 (Earlier)
+- **Bug Fixes**: Fixed video upload functionality and stream controls
+  - Resolved 400 error on video upload by fixing FormData handling
+  - Added missing pause and restart stream endpoints
+  - Updated UI components to handle paused stream state
+  - Fixed TypeScript errors in storage layer
+
 The application is designed for easy deployment on platforms like Replit, with built-in development tooling and a streamlined build process.
