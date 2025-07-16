@@ -1,7 +1,7 @@
-import { Square, Pause } from "lucide-react";
+import { Square, Pause, Monitor, Signal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { StreamStatus as StreamStatusType } from "@shared/schema";
+import { StreamStatus as StreamStatusType, StreamConfig } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -12,6 +12,11 @@ export default function StreamStatus() {
   const { data: streamStatus } = useQuery<StreamStatusType>({
     queryKey: ['/api/stream-status'],
     refetchInterval: 5000,
+  });
+
+  const { data: streamConfig } = useQuery<StreamConfig>({
+    queryKey: ['/api/stream-config'],
+    refetchInterval: 10000,
   });
 
   const stopStreamMutation = useMutation({
@@ -97,8 +102,38 @@ export default function StreamStatus() {
         </div>
         
         <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">Bitrate</span>
-          <span className="text-sm font-medium text-gray-900">2500 kbps</span>
+          <span className="text-sm text-gray-600">Video Bitrate</span>
+          <span className="text-sm font-medium text-gray-900">
+            {streamConfig?.bitrate ? `${streamConfig.bitrate} kbps` : 'Not configured'}
+          </span>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">Resolution</span>
+          <span className="text-sm font-medium text-gray-900">
+            {streamConfig?.resolution || 'Not configured'}
+          </span>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">Frame Rate</span>
+          <span className="text-sm font-medium text-gray-900">
+            {streamConfig?.framerate ? `${streamConfig.framerate} fps` : 'Not configured'}
+          </span>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">Audio Quality</span>
+          <span className="text-sm font-medium text-gray-900">
+            {streamConfig?.audioQuality ? `${streamConfig.audioQuality} kbps` : 'Not configured'}
+          </span>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">Platform</span>
+          <span className="text-sm font-medium text-gray-900 capitalize">
+            {streamConfig?.platform || 'Not configured'}
+          </span>
         </div>
       </div>
 

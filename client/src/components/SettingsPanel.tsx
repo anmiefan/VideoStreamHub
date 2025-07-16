@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Settings, X, Monitor, Wifi, Database, Info, Moon, Sun, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +94,9 @@ export default function SettingsPanel() {
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
+          <DialogDescription>
+            Configure application settings, streaming preferences, and view system information.
+          </DialogDescription>
         </DialogHeader>
         
         <Tabs defaultValue="general" className="w-full">
