@@ -102,9 +102,13 @@ The application uses three main database tables:
 
 ## Recent Changes: Latest modifications with dates
 
-### January 16, 2025
+### January 16, 2025 - Migration & FFmpeg Fixes
 - **Migration to Replit Environment**: Successfully migrated from Replit Agent to Replit
   - Created PostgreSQL database and configured environment variables
+  - Fixed FFmpeg integration and connection testing
+  - Enhanced Video Quality section with clear FFmpeg settings and save button
+  - Fixed resolution format conversion from UI (1920x1080) to FFmpeg (1080p)
+  - All video quality settings now properly connect to FFmpeg streaming parameters
   - Installed FFmpeg and Nginx system dependencies for RTMP support
   - Applied database schema migrations to set up video streaming tables
   - Enhanced StreamConfig component with improved Video Quality section

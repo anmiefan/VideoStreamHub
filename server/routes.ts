@@ -6,6 +6,7 @@ import { insertVideoSchema, insertStreamConfigSchema, insertStreamStatusSchema }
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { execSync } from "child_process";
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -295,24 +296,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Stream test endpoint called");
     
     try {
-      // Test FFmpeg availability
-      const { execSync } = require('child_process');
       
-      // Test FFmpeg with a simple command
-      const result = execSync('ffmpeg -version', { 
-        timeout: 5000, 
-        encoding: 'utf8',
-        stdio: 'pipe'
-      });
+      // Try different FFmpeg paths
+      const ffmpegPaths = [
+        'ffmpeg',
+        '/nix/store/3zc5jbvqzrn8zmva4fx5p0nh4yy03wk4-ffmpeg-6.1.1-bin/bin/ffmpeg',
+        '/usr/bin/ffmpeg',
+        '/usr/local/bin/ffmpeg'
+      ];
       
-      if (result.includes('ffmpeg version')) {
-        res.json({ message: "Connection test successful - FFmpeg is available and working" });
+      let ffmpegFound = false;
+      let ffmpegOutput = '';
+      
+      for (const ffmpegPath of ffmpegPaths) {
+        try {
+          const result = execSync(`${ffmpegPath} -version`, { 
+            timeout: 5000, 
+            encoding: 'utf8',
+            stdio: 'pipe',
+            env: { ...process.env, PATH: process.env.PATH }
+          });
+          
+          if (result.includes('ffmpeg version')) {
+            ffmpegFound = true;
+            ffmpegOutput = result;
+            console.log(`FFmpeg found at: ${ffmpegPath}`);
+            break;
+          }
+        } catch (pathError) {
+          console.log(`FFmpeg not found at ${ffmpegPath}:`, pathError.message);
+          continue;
+        }
+      }
+      
+      if (ffmpegFound) {
+        const versionMatch = ffmpegOutput.match(/ffmpeg version (\S+)/);
+        const version = versionMatch ? versionMatch[1] : 'unknown';
+        res.json({ 
+          message: `Connection test successful - FFmpeg ${version} is available and working`,
+          version: version
+        });
       } else {
-        res.status(400).json({ message: "FFmpeg test failed - unexpected output" });
+        res.status(400).json({ 
+          message: "FFmpeg is not available in any of the expected locations",
+          searchedPaths: ffmpegPaths
+        });
       }
     } catch (error) {
       console.error("FFmpeg test error:", error);
-      res.status(400).json({ message: "FFmpeg is not available or not working properly" });
+      res.status(400).json({ 
+        message: "FFmpeg test failed with error: " + error.message,
+        error: error.toString()
+      });
     }
   });
 
