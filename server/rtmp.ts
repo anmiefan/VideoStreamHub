@@ -35,7 +35,9 @@ export class RTMPStreamManager {
       // Build FFmpeg command for streaming
       const ffmpegArgs = this.buildFFmpegArgs(video.filename, config);
       
-      log(`Starting RTMP stream for video ${videoId} with args: ${ffmpegArgs.join(' ')}`);
+      log(`Starting RTMP stream for video ${videoId}`);
+      log(`Stream config: ${JSON.stringify(config)}`);
+      log(`FFmpeg command: ffmpeg ${ffmpegArgs.join(' ')}`);
       
       const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
       
@@ -50,12 +52,22 @@ export class RTMPStreamManager {
         
         // Check for connection success indicators
         if (output.includes('Stream mapping:') || output.includes('Press [q] to stop')) {
-          log('FFmpeg stream successfully connected');
+          log('FFmpeg stream successfully connected to RTMP server');
         }
         
-        // Check for common YouTube streaming errors
+        // Check for common streaming errors
         if (output.includes('Connection refused') || output.includes('No route to host')) {
           log('FFmpeg connection error - check stream key and network');
+        }
+        
+        // Check for authentication errors (invalid stream key)
+        if (output.includes('401 Unauthorized') || output.includes('403 Forbidden') || output.includes('Invalid stream name')) {
+          log('FFmpeg authentication error - check YouTube stream key');
+        }
+        
+        // Check for network connectivity issues
+        if (output.includes('Network is unreachable') || output.includes('Connection timed out')) {
+          log('FFmpeg network error - check internet connection');
         }
       });
       
@@ -220,10 +232,8 @@ export class RTMPStreamManager {
         // Get current stream status
         const currentStatus = await storage.getStreamStatus();
         if (currentStatus && currentStatus.status === 'live') {
-          // Generate realistic viewer count fluctuation
-          const baseViewers = 50;
-          const fluctuation = Math.floor(Math.random() * 100) - 50;
-          const viewerCount = Math.max(0, baseViewers + fluctuation);
+          // Keep viewer count at 0 since we can't get real YouTube viewer data
+          const viewerCount = 0;
           
           await storage.createOrUpdateStreamStatus({
             status: 'live',
@@ -257,6 +267,7 @@ export class RTMPStreamManager {
 
   private buildFFmpegArgs(videoPath: string, config: RTMPConfig): string[] {
     const args = [
+      '-stream_loop', '-1', // Loop the input indefinitely
       '-re', // Read input at native frame rate
       '-i', `uploads/${videoPath}`, // Input file
       '-c:v', 'libx264', // Video codec
@@ -273,6 +284,9 @@ export class RTMPStreamManager {
       '-ar', '44100', // Audio sample rate
       '-ac', '2', // Audio channels (stereo)
       '-f', 'flv', // Output format for RTMP
+      '-reconnect', '1', // Enable reconnection
+      '-reconnect_streamed', '1', // Reconnect for streamed inputs
+      '-reconnect_delay_max', '5', // Maximum delay between reconnection attempts
     ];
 
     // Add output URL with proper formatting
