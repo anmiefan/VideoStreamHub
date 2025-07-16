@@ -131,6 +131,11 @@ The application uses three main database tables:
   - Enhanced error messages for common streaming issues (connection refused, network errors)
   - Proper cleanup of uptime tracking when streams stop or fail
   - Fixed loop playback to maintain accurate viewer count tracking
+- **Fixed Video Duration Detection**: Resolved video duration showing "00:00" for all videos
+  - Implemented proper FFmpeg-based duration extraction using fluent-ffmpeg library
+  - Added automatic duration detection during video upload process
+  - Fixed existing video duration (27:14 for current video) using FFprobe metadata
+  - Videos now display accurate duration in MM:SS format in playlist management
 
 ### January 16, 2025 - 24x7 Playlist Loop Implementation
 - **Added 24x7 Continuous Streaming Loop**: Implemented automatic playlist cycling for non-stop streaming

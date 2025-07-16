@@ -7,6 +7,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { execSync } from "child_process";
+import ffmpeg from "fluent-ffmpeg";
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -35,6 +36,29 @@ const upload = multer({
   }
 });
 
+// Helper function to get video duration using FFmpeg
+async function getVideoDuration(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) {
+        console.error('Error getting video duration:', err);
+        resolve('00:00');
+        return;
+      }
+      
+      const duration = metadata.format.duration;
+      if (!duration) {
+        resolve('00:00');
+        return;
+      }
+      
+      const minutes = Math.floor(duration / 60);
+      const seconds = Math.floor(duration % 60);
+      resolve(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    });
+  });
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   
   // Video routes
@@ -53,14 +77,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No video file uploaded" });
       }
 
-      const { title, duration } = req.body;
+      const { title } = req.body;
       const videos = await storage.getVideos();
+      
+      // Get video duration using FFmpeg
+      const filePath = path.join(process.cwd(), 'uploads', req.file.filename);
+      const duration = await getVideoDuration(filePath);
       
       const videoData = {
         title: title || req.file.originalname,
         filename: req.file.filename,
         fileSize: req.file.size,
-        duration: duration || "00:00",
+        duration: duration,
         thumbnailUrl: null,
         playlistOrder: videos.length,
       };
@@ -73,6 +101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const video = await storage.createVideo(result.data);
       res.status(201).json(video);
     } catch (error) {
+      console.error('Error uploading video:', error);
       res.status(500).json({ message: "Failed to upload video" });
     }
   });
