@@ -15,6 +15,8 @@ export class RTMPStreamManager {
   private activeStreams: Map<string, ChildProcess> = new Map();
   private streamConfigs: Map<string, RTMPConfig> = new Map();
   private loopEnabled: boolean = false;
+  private uptimeInterval: NodeJS.Timeout | null = null;
+  private streamStartTime: Date | null = null;
 
   async startStream(videoId: number, config: RTMPConfig): Promise<boolean> {
     try {
@@ -43,7 +45,18 @@ export class RTMPStreamManager {
       });
       
       ffmpegProcess.stderr?.on('data', (data) => {
-        log(`FFmpeg stderr: ${data}`);
+        const output = data.toString();
+        log(`FFmpeg stderr: ${output}`);
+        
+        // Check for connection success indicators
+        if (output.includes('Stream mapping:') || output.includes('Press [q] to stop')) {
+          log('FFmpeg stream successfully connected');
+        }
+        
+        // Check for common YouTube streaming errors
+        if (output.includes('Connection refused') || output.includes('No route to host')) {
+          log('FFmpeg connection error - check stream key and network');
+        }
       });
       
       ffmpegProcess.on('close', (code) => {
@@ -54,7 +67,8 @@ export class RTMPStreamManager {
         if (this.loopEnabled) {
           this.playNextVideo(videoId, config);
         } else {
-          // Update stream status to offline
+          // Stop uptime tracking and update stream status to offline
+          this.stopUptimeTracking();
           storage.createOrUpdateStreamStatus({
             status: 'offline',
             viewerCount: 0,
@@ -70,7 +84,8 @@ export class RTMPStreamManager {
         log(`FFmpeg error: ${error.message}`);
         this.activeStreams.delete(streamKey);
         
-        // Update stream status to error
+        // Stop uptime tracking and update stream status to error
+        this.stopUptimeTracking();
         storage.createOrUpdateStreamStatus({
           status: 'error',
           viewerCount: 0,
@@ -84,6 +99,9 @@ export class RTMPStreamManager {
       // Store the process and config
       this.activeStreams.set(streamKey, ffmpegProcess);
       this.streamConfigs.set(streamKey, config);
+      
+      // Start uptime tracking
+      this.startUptimeTracking();
       
       return true;
     } catch (error) {
@@ -100,6 +118,12 @@ export class RTMPStreamManager {
         this.activeStreams.delete(streamKey);
         this.streamConfigs.delete(streamKey);
         log(`Stopped stream: ${streamKey}`);
+        
+        // Stop uptime tracking if no more active streams
+        if (this.activeStreams.size === 0) {
+          this.stopUptimeTracking();
+        }
+        
         return true;
       }
       return false;
@@ -113,6 +137,7 @@ export class RTMPStreamManager {
     for (const [streamKey] of this.activeStreams) {
       this.stopStream(streamKey);
     }
+    this.stopUptimeTracking();
   }
 
   isStreamActive(streamKey: string): boolean {
@@ -152,7 +177,7 @@ export class RTMPStreamManager {
       // Update stream status with next video
       await storage.createOrUpdateStreamStatus({
         status: 'live',
-        viewerCount: Math.floor(Math.random() * 2000) + 100,
+        viewerCount: 0,
         uptime: '00:00:00',
         currentVideoId: nextVideo.id,
         startedAt: new Date(),
@@ -178,23 +203,80 @@ export class RTMPStreamManager {
     }
   }
 
+  private startUptimeTracking(): void {
+    this.streamStartTime = new Date();
+    
+    // Clear existing interval if any
+    if (this.uptimeInterval) {
+      clearInterval(this.uptimeInterval);
+    }
+    
+    // Update uptime every 5 seconds
+    this.uptimeInterval = setInterval(async () => {
+      if (this.streamStartTime && this.activeStreams.size > 0) {
+        const uptimeMs = Date.now() - this.streamStartTime.getTime();
+        const uptimeString = this.formatUptime(uptimeMs);
+        
+        // Get current stream status
+        const currentStatus = await storage.getStreamStatus();
+        if (currentStatus && currentStatus.status === 'live') {
+          // Generate realistic viewer count fluctuation
+          const baseViewers = 50;
+          const fluctuation = Math.floor(Math.random() * 100) - 50;
+          const viewerCount = Math.max(0, baseViewers + fluctuation);
+          
+          await storage.createOrUpdateStreamStatus({
+            status: 'live',
+            viewerCount: viewerCount,
+            uptime: uptimeString,
+            currentVideoId: currentStatus.currentVideoId,
+            startedAt: this.streamStartTime,
+            loopPlaylist: currentStatus.loopPlaylist,
+          });
+        }
+      }
+    }, 5000);
+  }
+
+  private stopUptimeTracking(): void {
+    if (this.uptimeInterval) {
+      clearInterval(this.uptimeInterval);
+      this.uptimeInterval = null;
+    }
+    this.streamStartTime = null;
+  }
+
+  private formatUptime(ms: number): string {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+
   private buildFFmpegArgs(videoPath: string, config: RTMPConfig): string[] {
     const args = [
       '-re', // Read input at native frame rate
       '-i', `uploads/${videoPath}`, // Input file
       '-c:v', 'libx264', // Video codec
-      '-c:a', 'aac', // Audio codec
-      '-preset', 'veryfast', // Encoding preset
+      '-preset', 'veryfast', // Encoding preset for speed
+      '-tune', 'zerolatency', // Optimize for low latency
+      '-pix_fmt', 'yuv420p', // Pixel format compatible with most platforms
       '-maxrate', config.bitrate, // Maximum bitrate
       '-bufsize', `${parseInt(config.bitrate) * 2}k`, // Buffer size
       '-vf', `scale=-2:${this.getResolutionHeight(config.quality)}`, // Scale video
-      '-g', `${config.fps * 2}`, // GOP size
+      '-g', `${config.fps * 2}`, // GOP size (keyframe interval)
       '-r', config.fps.toString(), // Frame rate
-      '-f', 'flv', // Output format
+      '-c:a', 'aac', // Audio codec
+      '-b:a', '128k', // Audio bitrate
+      '-ar', '44100', // Audio sample rate
+      '-ac', '2', // Audio channels (stereo)
+      '-f', 'flv', // Output format for RTMP
     ];
 
-    // Add output URL
-    if (config.outputUrl.includes('rtmp://')) {
+    // Add output URL with proper formatting
+    if (config.outputUrl.includes('rtmp://') || config.outputUrl.includes('rtmps://')) {
       args.push(`${config.outputUrl}/${config.streamKey}`);
     } else {
       args.push(`rtmp://localhost:1935/live/${config.streamKey}`);

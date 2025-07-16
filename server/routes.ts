@@ -229,7 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const status = await storage.createOrUpdateStreamStatus({
         status: 'live',
-        viewerCount: Math.floor(Math.random() * 2000) + 100,
+        viewerCount: 0,
         uptime: '00:00:00',
         currentVideoId: currentVideoId,
         startedAt: new Date(),
