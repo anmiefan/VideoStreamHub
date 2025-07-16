@@ -281,38 +281,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/stream/test", async (req, res) => {
+  app.post("/api/stream/test", (req, res) => {
+    console.log("Stream test endpoint called");
+    
     try {
-      // Get stream configuration
-      const streamConfig = await storage.getStreamConfig();
-      if (!streamConfig) {
-        return res.status(400).json({ message: "Stream configuration not found" });
-      }
-
       // Test FFmpeg availability
-      const { spawn } = require('child_process');
-      const ffmpegTest = spawn('ffmpeg', ['-version']);
+      const { execSync } = require('child_process');
       
-      ffmpegTest.on('close', (code) => {
-        if (code === 0) {
-          res.json({ message: "Connection test successful - FFmpeg available" });
-        } else {
-          res.status(400).json({ message: "FFmpeg not available. Please check installation." });
-        }
+      // Test FFmpeg with a simple command
+      const result = execSync('ffmpeg -version', { 
+        timeout: 5000, 
+        encoding: 'utf8',
+        stdio: 'pipe'
       });
-
-      ffmpegTest.on('error', (error) => {
-        res.status(400).json({ message: "FFmpeg test failed: " + error.message });
-      });
-
-      // Timeout the test after 5 seconds
-      setTimeout(() => {
-        ffmpegTest.kill();
-        res.status(408).json({ message: "Connection test timed out" });
-      }, 5000);
-
+      
+      if (result.includes('ffmpeg version')) {
+        res.json({ message: "Connection test successful - FFmpeg is available and working" });
+      } else {
+        res.status(400).json({ message: "FFmpeg test failed - unexpected output" });
+      }
     } catch (error) {
-      res.status(500).json({ message: "Failed to test connection" });
+      console.error("FFmpeg test error:", error);
+      res.status(400).json({ message: "FFmpeg is not available or not working properly" });
     }
   });
 
