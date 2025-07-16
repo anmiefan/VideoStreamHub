@@ -283,14 +283,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/stream/test", async (req, res) => {
     try {
-      // Mock connection test - simulate success/failure
-      const success = Math.random() > 0.3; // 70% success rate
-      
-      if (success) {
-        res.json({ message: "Connection test successful" });
-      } else {
-        res.status(400).json({ message: "Connection failed. Please check your settings." });
+      // Get stream configuration
+      const streamConfig = await storage.getStreamConfig();
+      if (!streamConfig) {
+        return res.status(400).json({ message: "Stream configuration not found" });
       }
+
+      // Test FFmpeg availability
+      const { spawn } = require('child_process');
+      const ffmpegTest = spawn('ffmpeg', ['-version']);
+      
+      ffmpegTest.on('close', (code) => {
+        if (code === 0) {
+          res.json({ message: "Connection test successful - FFmpeg available" });
+        } else {
+          res.status(400).json({ message: "FFmpeg not available. Please check installation." });
+        }
+      });
+
+      ffmpegTest.on('error', (error) => {
+        res.status(400).json({ message: "FFmpeg test failed: " + error.message });
+      });
+
+      // Timeout the test after 5 seconds
+      setTimeout(() => {
+        ffmpegTest.kill();
+        res.status(408).json({ message: "Connection test timed out" });
+      }, 5000);
+
     } catch (error) {
       res.status(500).json({ message: "Failed to test connection" });
     }
