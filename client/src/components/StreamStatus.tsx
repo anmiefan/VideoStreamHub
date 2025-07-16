@@ -114,12 +114,7 @@ export default function StreamStatus() {
               <Square className="h-4 w-4 mr-2" />
               Stop Stream
             </Button>
-            {streamStatus?.status === 'live' && (
-              <Button variant="outline" className="w-full">
-                <Pause className="h-4 w-4 mr-2" />
-                Pause
-              </Button>
-            )}
+            
           </>
         )}
         
