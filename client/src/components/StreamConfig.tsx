@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Play, CheckCircle, Eye, EyeOff, ExternalLink, AlertCircle, Monitor, Zap, Volume2, TestTube2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,16 +35,32 @@ export default function StreamConfig() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      platform: streamConfig?.platform || 'youtube',
-      streamKey: streamConfig?.streamKey || '',
-      rtmpUrl: streamConfig?.rtmpUrl || '',
-      resolution: streamConfig?.resolution || '1920x1080',
-      framerate: streamConfig?.framerate || 30,
-      bitrate: streamConfig?.bitrate || 2500,
-      audioQuality: streamConfig?.audioQuality || 128,
+      platform: 'youtube',
+      streamKey: '',
+      rtmpUrl: '',
+      resolution: '1920x1080',
+      framerate: 30,
+      bitrate: 2500,
+      audioQuality: 128,
       isActive: true,
     },
   });
+
+  // Reset form when data is loaded
+  useEffect(() => {
+    if (streamConfig) {
+      form.reset({
+        platform: streamConfig.platform || 'youtube',
+        streamKey: streamConfig.streamKey || '',
+        rtmpUrl: streamConfig.rtmpUrl || '',
+        resolution: streamConfig.resolution || '1920x1080',
+        framerate: streamConfig.framerate || 30,
+        bitrate: streamConfig.bitrate || 2500,
+        audioQuality: streamConfig.audioQuality || 128,
+        isActive: true,
+      });
+    }
+  }, [streamConfig, form]);
 
   const saveConfigMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
@@ -153,15 +169,6 @@ export default function StreamConfig() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Stream Configuration</h2>
-        <Button
-          onClick={() => testConnectionMutation.mutate()}
-          disabled={testConnectionMutation.isPending}
-          variant="outline"
-          size="sm"
-        >
-          <TestTube2 className="h-4 w-4 mr-2" />
-          Test Connection
-        </Button>
       </div>
 
       <Alert>
@@ -290,6 +297,26 @@ export default function StreamConfig() {
                   )}
                 />
               )}
+
+              {/* Action buttons for this card */}
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  type="submit"
+                  disabled={saveConfigMutation.isPending}
+                  className="flex-1"
+                >
+                  {saveConfigMutation.isPending ? 'Saving...' : 'Save Configuration'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleTestConnection}
+                  disabled={testConnectionMutation.isPending}
+                >
+                  <TestTube2 className="h-4 w-4 mr-2" />
+                  {testConnectionMutation.isPending ? 'Testing...' : 'Test'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -408,16 +435,40 @@ export default function StreamConfig() {
             </CardContent>
           </Card>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <Button 
-              type="submit"
-              className="flex-1"
-              disabled={saveConfigMutation.isPending}
-            >
-              {saveConfigMutation.isPending ? 'Saving...' : 'Save Configuration'}
-            </Button>
-          </div>
+          {/* Stream Action Buttons */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Play className="h-5 w-5" />
+                Stream Controls
+              </CardTitle>
+              <CardDescription>
+                Start streaming once your configuration is saved and tested.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-3">
+                <Button 
+                  type="button"
+                  onClick={handleStartStream}
+                  disabled={startStreamMutation.isPending || !form.watch('streamKey')}
+                  className="flex-1"
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  {startStreamMutation.isPending ? 'Starting...' : 'Start Stream'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleTestConnection}
+                  disabled={testConnectionMutation.isPending || !form.watch('streamKey')}
+                >
+                  <TestTube2 className="h-4 w-4 mr-2" />
+                  {testConnectionMutation.isPending ? 'Testing...' : 'Test Connection'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </form>
       </Form>
     </div>
