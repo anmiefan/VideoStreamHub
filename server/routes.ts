@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { rtmpManager } from "./rtmp";
 import { insertVideoSchema, insertStreamConfigSchema, insertStreamStatusSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
@@ -162,16 +163,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/stream/start", async (req, res) => {
     try {
-      const videos = await storage.getVideos();
-      if (videos.length === 0) {
-        return res.status(400).json({ message: "No videos in playlist" });
+      const streamStatus = await storage.getStreamStatus();
+      const currentVideoId = streamStatus?.currentVideoId;
+      
+      if (!currentVideoId) {
+        return res.status(400).json({ message: "No video selected for streaming" });
+      }
+
+      const video = await storage.getVideo(currentVideoId);
+      if (!video) {
+        return res.status(400).json({ message: "Selected video not found" });
+      }
+
+      // Get stream configuration
+      const streamConfig = await storage.getStreamConfig();
+      if (!streamConfig) {
+        return res.status(400).json({ message: "Stream configuration not found" });
+      }
+
+      // Start RTMP stream
+      const rtmpConfig = {
+        inputPath: video.filename,
+        outputUrl: streamConfig.rtmpUrl || 'rtmp://localhost:1935/live',
+        streamKey: streamConfig.streamKey || 'default',
+        quality: `${streamConfig.resolution}p` || '720p',
+        bitrate: `${streamConfig.bitrate}k` || '3000k',
+        fps: streamConfig.framerate || 30
+      };
+
+      const streamStarted = await rtmpManager.startStream(currentVideoId, rtmpConfig);
+      
+      if (!streamStarted) {
+        return res.status(500).json({ message: "Failed to start RTMP stream" });
       }
 
       const status = await storage.createOrUpdateStreamStatus({
         status: 'live',
-        viewerCount: Math.floor(Math.random() * 2000) + 100, // Mock viewer count
+        viewerCount: Math.floor(Math.random() * 2000) + 100,
         uptime: '00:00:00',
-        currentVideoId: videos[0].id,
+        currentVideoId: currentVideoId,
         startedAt: new Date(),
       });
 
@@ -183,6 +213,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/stream/stop", async (req, res) => {
     try {
+      // Stop all RTMP streams
+      rtmpManager.stopAllStreams();
+
       const status = await storage.createOrUpdateStreamStatus({
         status: 'offline',
         viewerCount: 0,
@@ -260,6 +293,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       res.status(500).json({ message: "Failed to test connection" });
+    }
+  });
+
+  // RTMP webhook endpoints
+  app.post("/api/rtmp/publish", async (req, res) => {
+    try {
+      console.log("RTMP Publish started:", req.body);
+      res.status(200).send("OK");
+    } catch (error) {
+      res.status(500).json({ message: "Failed to handle RTMP publish" });
+    }
+  });
+
+  app.post("/api/rtmp/play", async (req, res) => {
+    try {
+      console.log("RTMP Play started:", req.body);
+      res.status(200).send("OK");
+    } catch (error) {
+      res.status(500).json({ message: "Failed to handle RTMP play" });
+    }
+  });
+
+  app.post("/api/rtmp/publish_done", async (req, res) => {
+    try {
+      console.log("RTMP Publish ended:", req.body);
+      res.status(200).send("OK");
+    } catch (error) {
+      res.status(500).json({ message: "Failed to handle RTMP publish done" });
+    }
+  });
+
+  app.post("/api/rtmp/play_done", async (req, res) => {
+    try {
+      console.log("RTMP Play ended:", req.body);
+      res.status(200).send("OK");
+    } catch (error) {
+      res.status(500).json({ message: "Failed to handle RTMP play done" });
+    }
+  });
+
+  app.post("/api/rtmp/record_done", async (req, res) => {
+    try {
+      console.log("RTMP Recording finished:", req.body);
+      res.status(200).send("OK");
+    } catch (error) {
+      res.status(500).json({ message: "Failed to handle RTMP record done" });
     }
   });
 
