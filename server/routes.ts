@@ -193,7 +193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Get platform-specific RTMP URL
-      const getPlatformRTMPUrl = (platform: string): string => {
+      const getPlatformRTMPUrl = (platform: string, customUrl?: string): string => {
         switch (platform.toLowerCase()) {
           case 'youtube':
             return 'rtmp://a.rtmp.youtube.com/live2';
@@ -201,15 +201,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return 'rtmp://live.twitch.tv/app';
           case 'facebook':
             return 'rtmps://live-api-s.facebook.com:443/rtmp';
+          case 'custom':
+            return customUrl || 'rtmp://localhost:1935/live';
           default:
-            return streamConfig.rtmpUrl || 'rtmp://a.rtmp.youtube.com/live2';
+            return customUrl || 'rtmp://a.rtmp.youtube.com/live2';
         }
       };
 
       // Start RTMP stream
       const rtmpConfig = {
         inputPath: video.filename,
-        outputUrl: getPlatformRTMPUrl(streamConfig.platform),
+        outputUrl: getPlatformRTMPUrl(streamConfig.platform, streamConfig.rtmpUrl),
         streamKey: streamConfig.streamKey || 'default',
         quality: convertResolution(streamConfig.resolution || '1280x720'),
         bitrate: `${streamConfig.bitrate}k` || '3000k',

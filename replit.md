@@ -102,6 +102,21 @@ The application uses three main database tables:
 
 ## Recent Changes: Latest modifications with dates
 
+### January 16, 2025 - Platform-Specific Streaming Configuration Fix
+- **Fixed Platform-Specific RTMP URL Configuration**: Resolved critical issue with stream platform switching
+  - Updated backend routing to properly use custom RTMP URLs for different platforms
+  - Fixed platform detection to use saved `rtmpUrl` field from database for custom platforms
+  - Enhanced frontend form validation to require RTMP URL for custom platforms
+  - Improved UI flow: RTMP URL field now appears immediately after platform selection
+  - Added proper validation for RTMP URL format (must start with rtmp://)
+  - All platforms now properly save and apply their specific stream keys and URLs:
+    - YouTube: `rtmp://a.rtmp.youtube.com/live2`
+    - Twitch: `rtmp://live.twitch.tv/app`
+    - Facebook: `rtmps://live-api-s.facebook.com:443/rtmp`
+    - Custom: Uses user-provided RTMP URL from database
+  - Stream configuration persists correctly across platform changes
+  - FFmpeg now connects to the correct RTMP endpoint based on saved configuration
+
 ### January 16, 2025 - YouTube Streaming Fix & Upload Button Enhancement
 - **Fixed Start Stream Button**: Resolved critical YouTube streaming connection issue
   - Updated RTMP configuration to use proper YouTube endpoint: `rtmp://a.rtmp.youtube.com/live2`

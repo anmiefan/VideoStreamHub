@@ -20,7 +20,20 @@ import { z } from "zod";
 
 const formSchema = insertStreamConfigSchema.extend({
   streamKey: z.string().min(1, "Stream key is required"),
-  rtmpUrl: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
+  rtmpUrl: z.string().optional().or(z.literal("")),
+}).refine((data) => {
+  // Make rtmpUrl required for custom platform
+  if (data.platform === 'custom' && !data.rtmpUrl) {
+    return false;
+  }
+  // Validate URL format for custom platform
+  if (data.platform === 'custom' && data.rtmpUrl && !data.rtmpUrl.startsWith('rtmp://')) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Valid RTMP URL is required for custom platform",
+  path: ["rtmpUrl"],
 });
 
 export default function StreamConfig() {
@@ -217,6 +230,27 @@ export default function StreamConfig() {
                 )}
               />
 
+              {/* RTMP URL for Custom Platform */}
+              {form.watch('platform') === 'custom' && (
+                <FormField
+                  control={form.control}
+                  name="rtmpUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>RTMP URL</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="url"
+                          placeholder="rtmp://your-server.com/live"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               {/* Platform Instructions */}
               {form.watch('platform') && (
                 <div className="bg-blue-50 p-3 rounded-md">
@@ -225,8 +259,8 @@ export default function StreamConfig() {
                 </div>
               )}
 
-              {/* Stream URL Display */}
-              {form.watch('platform') && (
+              {/* Stream URL Display - Non-custom platforms */}
+              {form.watch('platform') && form.watch('platform') !== 'custom' && (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Stream URL</Label>
                   <div className="flex items-center gap-2">
