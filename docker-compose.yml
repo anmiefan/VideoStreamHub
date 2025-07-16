@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: streaming_app
+      POSTGRES_USER: streaming_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U streaming_user -d streaming_app"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Main application
+  streaming-app:
+    build: .
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://streaming_user:${POSTGRES_PASSWORD:-secure_password}@postgres:5432/streaming_app
+      PORT: 5000
+    ports:
+      - "80:80"
+      - "1935:1935"
+    volumes:
+      - uploads_data:/app/uploads
+      - hls_data:/var/www/html/hls
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/videos"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  uploads_data:
+  hls_data:
+  redis_data:
