@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { GripVertical, Play, Edit, Trash2, Plus } from "lucide-react";
+import { GripVertical, Play, Edit, Trash2, Plus, CheckCircle, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Video } from "@shared/schema";
+import { Video, StreamStatus } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 export default function PlaylistManager() {
   const [draggedItem, setDraggedItem] = useState<number | null>(null);
@@ -18,6 +19,11 @@ export default function PlaylistManager() {
 
   const { data: videos = [], isLoading } = useQuery<Video[]>({
     queryKey: ['/api/videos'],
+  });
+
+  const { data: streamStatus } = useQuery<StreamStatus>({
+    queryKey: ['/api/stream-status'],
+    refetchInterval: 5000,
   });
 
   const deleteVideoMutation = useMutation({
@@ -143,6 +149,14 @@ export default function PlaylistManager() {
     setCurrentVideoMutation.mutate(id);
   };
 
+  const getNextVideo = () => {
+    if (!streamStatus?.currentVideoId) return null;
+    const currentIndex = videos.findIndex(v => v.id === streamStatus.currentVideoId);
+    return currentIndex >= 0 && currentIndex < videos.length - 1 
+      ? videos[currentIndex + 1] 
+      : null;
+  };
+
   const handleSaveEdit = () => {
     if (editingVideo && editTitle.trim()) {
       updateVideoMutation.mutate({ id: editingVideo.id, title: editTitle.trim() });
@@ -174,11 +188,29 @@ export default function PlaylistManager() {
   return (
     <div className="bg-white rounded-lg shadow-material p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold text-gray-900">Playlist Management</h2>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Playlist Management</h2>
+          <div className="flex items-center space-x-4 mt-1">
+            <span className="text-sm text-gray-500">{videos.length} videos</span>
+            {streamStatus?.currentVideoId && (
+              <div className="flex items-center space-x-2">
+                <Circle className="h-3 w-3 text-primary" />
+                <span className="text-sm text-gray-600">
+                  Current: {videos.find(v => v.id === streamStatus.currentVideoId)?.title || 'Unknown'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
         <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-500">{videos.length} videos</span>
-          <Button size="sm" variant="outline">
-            <Plus className="h-4 w-4" />
+          {streamStatus?.status === 'live' && (
+            <Badge variant="destructive" className="text-xs">
+              Live Stream
+            </Badge>
+          )}
+          <Button size="sm" variant="outline" title="Upload new video">
+            <Plus className="h-4 w-4 mr-1" />
+            Upload
           </Button>
         </div>
       </div>
@@ -189,58 +221,107 @@ export default function PlaylistManager() {
         </div>
       ) : (
         <div className="space-y-3">
-          {videos.map((video) => (
-            <div
-              key={video.id}
-              draggable
-              onDragStart={(e) => handleDragStart(e, video.id)}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, video.id)}
-              className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-move"
-            >
-              <div className="flex-shrink-0">
-                <GripVertical className="h-5 w-5 text-gray-400" />
-              </div>
-              <div className="flex-shrink-0 w-16 h-12 bg-gray-300 rounded overflow-hidden">
-                <div className="w-full h-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center">
-                  <Play className="h-3 w-3 text-white" />
+          {videos.map((video) => {
+            const isCurrentVideo = video.id === streamStatus?.currentVideoId;
+            const isStreaming = streamStatus?.status === 'live';
+            const nextVideo = getNextVideo();
+            const isNextVideo = nextVideo?.id === video.id;
+            
+            return (
+              <div
+                key={video.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, video.id)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, video.id)}
+                className={`flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-100 transition-colors cursor-move ${
+                  isCurrentVideo 
+                    ? 'bg-blue-50 border-2 border-blue-200' 
+                    : isNextVideo
+                    ? 'bg-green-50 border-2 border-green-200'
+                    : 'bg-gray-50 border-2 border-transparent'
+                }`}
+              >
+                <div className="flex-shrink-0">
+                  <GripVertical className="h-5 w-5 text-gray-400" />
+                </div>
+                <div className="flex-shrink-0 w-16 h-12 bg-gray-300 rounded overflow-hidden relative">
+                  <div className="w-full h-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center">
+                    <Play className="h-3 w-3 text-white" />
+                  </div>
+                  {isCurrentVideo && (
+                    <div className="absolute -top-1 -right-1">
+                      <CheckCircle className="h-4 w-4 text-primary bg-white rounded-full" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center space-x-2">
+                    <h3 className={`text-sm font-medium truncate ${
+                      isCurrentVideo ? 'text-blue-900' : isNextVideo ? 'text-green-900' : 'text-gray-900'
+                    }`}>
+                      {video.title}
+                    </h3>
+                    {isCurrentVideo && (
+                      <Badge variant="secondary" className="text-xs">
+                        {isStreaming ? 'Live' : 'Selected'}
+                      </Badge>
+                    )}
+                    {isNextVideo && (
+                      <Badge variant="outline" className="text-xs bg-green-50 border-green-200">
+                        Next
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-xs text-gray-500">{video.duration}</p>
+                    <span className="text-xs text-gray-400">•</span>
+                    <p className="text-xs text-gray-500">
+                      {(video.fileSize / (1024 * 1024)).toFixed(1)} MB
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className={`p-1 h-8 w-8 ${
+                      isCurrentVideo 
+                        ? 'bg-blue-100 hover:bg-blue-200' 
+                        : ''
+                    }`}
+                    onClick={() => handlePlayVideo(video.id)}
+                    title={isCurrentVideo ? 'Currently selected' : 'Set as current video'}
+                  >
+                    {isCurrentVideo ? (
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Play className="h-4 w-4 text-primary" />
+                    )}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="p-1 h-8 w-8"
+                    onClick={() => handleEditVideo(video.id)}
+                    title="Edit video"
+                  >
+                    <Edit className="h-4 w-4 text-warning" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="p-1 h-8 w-8"
+                    onClick={() => handleDeleteVideo(video.id)}
+                    disabled={deleteVideoMutation.isPending}
+                    title="Delete video"
+                  >
+                    <Trash2 className="h-4 w-4 text-error" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-medium text-gray-900 truncate">{video.title}</h3>
-                <p className="text-xs text-gray-500">{video.duration}</p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="p-1 h-8 w-8"
-                  onClick={() => handlePlayVideo(video.id)}
-                  title="Play this video"
-                >
-                  <Play className="h-4 w-4 text-primary" />
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="p-1 h-8 w-8"
-                  onClick={() => handleEditVideo(video.id)}
-                  title="Edit video"
-                >
-                  <Edit className="h-4 w-4 text-warning" />
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="p-1 h-8 w-8"
-                  onClick={() => handleDeleteVideo(video.id)}
-                  disabled={deleteVideoMutation.isPending}
-                >
-                  <Trash2 className="h-4 w-4 text-error" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
