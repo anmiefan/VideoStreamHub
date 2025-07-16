@@ -104,6 +104,15 @@ export default function StreamControls() {
   const canPause = streamStatus?.status === 'live';
   const canRestart = streamStatus?.status === 'error' || streamStatus?.status === 'offline';
 
+  // Debug logging
+  console.log('StreamControls Debug:', {
+    streamStatus: streamStatus?.status,
+    canStart,
+    canStop,
+    canPause,
+    canRestart
+  });
+
   return (
     <div className="flex flex-wrap gap-3">
       {canStart && (
