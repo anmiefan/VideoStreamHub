@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Video, StreamStatus } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -418,6 +418,9 @@ export default function PlaylistManager() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Video</DialogTitle>
+            <DialogDescription>
+              Update the video title and save your changes.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>

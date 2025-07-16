@@ -102,6 +102,24 @@ The application uses three main database tables:
 
 ## Recent Changes: Latest modifications with dates
 
+### January 16, 2025 - YouTube Streaming Fix & Upload Button Enhancement
+- **Fixed Start Stream Button**: Resolved critical YouTube streaming connection issue
+  - Updated RTMP configuration to use proper YouTube endpoint: `rtmp://a.rtmp.youtube.com/live2`
+  - Fixed platform-specific RTMP URL routing for YouTube, Twitch, and Facebook
+  - Eliminated "Cannot assign requested address" errors from localhost:1935 attempts
+  - FFmpeg now properly connects to YouTube's RTMP servers with correct stream keys
+  - Stream status updates correctly show "live" when streaming to YouTube
+  - Added proper platform detection for different streaming services
+- **Enhanced Upload Button in Playlist Management**: Fixed non-functional upload button
+  - Added complete file upload functionality with hidden file input
+  - Implemented file type validation (MP4, AVI, MOV only)
+  - Added file size validation (500MB maximum)
+  - Upload button shows loading state with spinner during upload
+  - Success and error messages provide proper user feedback
+  - Playlist automatically refreshes after successful upload
+  - Fixed accessibility warning by adding DialogDescription to edit video dialog
+  - All existing playlist features remain fully functional
+
 ### January 16, 2025 - Stream Status & Settings Enhancement
 - **Stream Status Real Data Integration**: Fixed Stream Status component to display actual configuration data
   - Removed hardcoded bitrate value, now shows real bitrate from stream configuration
