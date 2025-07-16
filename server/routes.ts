@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { rtmpManager } from "./rtmp";
@@ -60,6 +61,9 @@ async function getVideoDuration(filePath: string): Promise<string> {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Serve uploaded videos
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
   
   // Video routes
   app.get("/api/videos", async (req, res) => {

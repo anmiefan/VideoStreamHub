@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { GripVertical, Play, Edit, Trash2, Plus, CheckCircle, Circle, Upload, Repeat } from "lucide-react";
+import { GripVertical, Play, Edit, Trash2, Plus, CheckCircle, Circle, Upload, Repeat, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Video, StreamStatus } from "@shared/schema";
@@ -15,6 +15,7 @@ export default function PlaylistManager() {
   const [draggedItem, setDraggedItem] = useState<number | null>(null);
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [previewVideo, setPreviewVideo] = useState<Video | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -310,6 +311,14 @@ export default function PlaylistManager() {
                   <Button
                     size="sm"
                     variant="outline"
+                    onClick={() => setPreviewVideo(video)}
+                    title="Preview video"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={() => setCurrentVideoMutation.mutate(video.id)}
                     disabled={setCurrentVideoMutation.isPending}
                   >
@@ -337,6 +346,55 @@ export default function PlaylistManager() {
         accept="video/mp4,video/avi,video/mov,video/quicktime"
         style={{ display: 'none' }}
       />
+
+      {/* Video Preview Dialog */}
+      <Dialog open={!!previewVideo} onOpenChange={() => setPreviewVideo(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Video Preview</DialogTitle>
+            <DialogDescription>
+              Preview and test video playback
+            </DialogDescription>
+          </DialogHeader>
+          {previewVideo && (
+            <div className="space-y-4">
+              <div className="bg-black rounded-lg overflow-hidden">
+                <video
+                  controls
+                  className="w-full h-auto max-h-96"
+                  preload="metadata"
+                  src={`/uploads/${previewVideo.filename}`}
+                  onError={(e) => {
+                    console.error('Video playback error:', e);
+                    toast({
+                      title: "Playback Error",
+                      description: "Unable to play this video file",
+                      variant: "destructive",
+                    });
+                  }}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium text-gray-900">{previewVideo.title}</h3>
+                  <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <span>Duration: {previewVideo.duration}</span>
+                    <span>Size: {formatFileSize(previewVideo.fileSize)}</span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setPreviewVideo(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
