@@ -325,13 +325,21 @@ export default function StreamConfig() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Monitor className="h-5 w-5" />
-                Video Quality
+                Video Quality (FFmpeg Settings)
               </CardTitle>
               <CardDescription>
-                Configure video output settings for your stream.
+                Configure video encoding settings used by FFmpeg for streaming. These settings directly affect stream quality and performance.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* FFmpeg Info Alert */}
+              <Alert>
+                <Zap className="h-4 w-4" />
+                <AlertDescription>
+                  These settings control how FFmpeg processes your video for streaming. Higher quality uses more bandwidth and CPU.
+                </AlertDescription>
+              </Alert>
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -346,9 +354,9 @@ export default function StreamConfig() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="1920x1080">1920x1080</SelectItem>
-                          <SelectItem value="1280x720">1280x720</SelectItem>
-                          <SelectItem value="854x480">854x480</SelectItem>
+                          <SelectItem value="1920x1080">1920x1080 (Full HD)</SelectItem>
+                          <SelectItem value="1280x720">1280x720 (HD)</SelectItem>
+                          <SelectItem value="854x480">854x480 (SD)</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -369,9 +377,9 @@ export default function StreamConfig() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="30">30 fps</SelectItem>
-                          <SelectItem value="25">25 fps</SelectItem>
-                          <SelectItem value="24">24 fps</SelectItem>
+                          <SelectItem value="30">30 fps (Smooth)</SelectItem>
+                          <SelectItem value="25">25 fps (Standard)</SelectItem>
+                          <SelectItem value="24">24 fps (Cinematic)</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -386,7 +394,7 @@ export default function StreamConfig() {
                 name="bitrate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Bitrate (kbps)</FormLabel>
+                    <FormLabel>Video Bitrate (kbps)</FormLabel>
                     <FormControl>
                       <div className="space-y-2">
                         <Slider
@@ -398,9 +406,14 @@ export default function StreamConfig() {
                           className="w-full"
                         />
                         <div className="flex justify-between text-sm text-gray-500">
-                          <span>500</span>
-                          <span className="font-medium">{bitrateValue}</span>
-                          <span>6000</span>
+                          <span>Low (500)</span>
+                          <span className="font-medium">{bitrateValue} kbps</span>
+                          <span>High (6000)</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {bitrateValue < 1500 && "Low quality, small file size"}
+                          {bitrateValue >= 1500 && bitrateValue < 3000 && "Medium quality, balanced size"}
+                          {bitrateValue >= 3000 && "High quality, large file size"}
                         </div>
                       </div>
                     </FormControl>
@@ -415,7 +428,7 @@ export default function StreamConfig() {
                 name="audioQuality"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Audio Quality</FormLabel>
+                    <FormLabel>Audio Bitrate</FormLabel>
                     <Select onValueChange={(value) => field.onChange(parseInt(value))} defaultValue={field.value.toString()}>
                       <FormControl>
                         <SelectTrigger>
@@ -423,15 +436,27 @@ export default function StreamConfig() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="128">128 kbps</SelectItem>
-                        <SelectItem value="96">96 kbps</SelectItem>
-                        <SelectItem value="64">64 kbps</SelectItem>
+                        <SelectItem value="128">128 kbps (High Quality)</SelectItem>
+                        <SelectItem value="96">96 kbps (Medium Quality)</SelectItem>
+                        <SelectItem value="64">64 kbps (Low Quality)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {/* Video Quality Save Button */}
+              <div className="flex gap-2 pt-4 border-t">
+                <Button 
+                  type="submit"
+                  disabled={saveConfigMutation.isPending}
+                  className="flex-1"
+                >
+                  <Monitor className="h-4 w-4 mr-2" />
+                  {saveConfigMutation.isPending ? 'Saving...' : 'Save Video Quality Settings'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

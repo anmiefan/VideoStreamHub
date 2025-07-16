@@ -181,12 +181,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Stream configuration not found" });
       }
 
+      // Convert resolution format for FFmpeg
+      const convertResolution = (resolution: string): string => {
+        switch (resolution) {
+          case '1920x1080': return '1080p';
+          case '1280x720': return '720p';
+          case '854x480': return '480p';
+          default: return '720p';
+        }
+      };
+
       // Start RTMP stream
       const rtmpConfig = {
         inputPath: video.filename,
         outputUrl: streamConfig.rtmpUrl || 'rtmp://localhost:1935/live',
         streamKey: streamConfig.streamKey || 'default',
-        quality: `${streamConfig.resolution}p` || '720p',
+        quality: convertResolution(streamConfig.resolution || '1280x720'),
         bitrate: `${streamConfig.bitrate}k` || '3000k',
         fps: streamConfig.framerate || 30
       };
