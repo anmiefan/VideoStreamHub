@@ -197,26 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/stream/pause", async (req, res) => {
-    try {
-      const currentStatus = await storage.getStreamStatus();
-      if (!currentStatus || currentStatus.status !== 'live') {
-        return res.status(400).json({ message: "Stream is not currently live" });
-      }
 
-      const status = await storage.createOrUpdateStreamStatus({
-        status: 'paused',
-        viewerCount: currentStatus.viewerCount,
-        uptime: currentStatus.uptime,
-        currentVideoId: currentStatus.currentVideoId,
-        startedAt: currentStatus.startedAt,
-      });
-
-      res.json(status);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to pause stream" });
-    }
-  });
 
   app.post("/api/stream/restart", async (req, res) => {
     try {

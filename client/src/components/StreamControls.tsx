@@ -1,4 +1,4 @@
-import { Play, Square, Pause, RotateCcw } from "lucide-react";
+import { Play, Square, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { StreamStatus as StreamStatusType } from "@shared/schema";
@@ -54,25 +54,7 @@ export default function StreamControls() {
     },
   });
 
-  const pauseStreamMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest('POST', '/api/stream/pause');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/stream-status'] });
-      toast({
-        title: "Success",
-        description: "Stream paused successfully!",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to pause stream",
-        variant: "destructive",
-      });
-    },
-  });
+
 
   const restartStreamMutation = useMutation({
     mutationFn: async () => {
@@ -96,22 +78,11 @@ export default function StreamControls() {
 
   const isLoading = startStreamMutation.isPending || 
                    stopStreamMutation.isPending || 
-                   pauseStreamMutation.isPending || 
                    restartStreamMutation.isPending;
 
-  const canStart = streamStatus?.status === 'offline' || streamStatus?.status === 'error' || streamStatus?.status === 'paused';
-  const canStop = streamStatus?.status === 'live' || streamStatus?.status === 'starting' || streamStatus?.status === 'paused';
-  const canPause = streamStatus?.status === 'live';
+  const canStart = streamStatus?.status === 'offline' || streamStatus?.status === 'error';
+  const canStop = streamStatus?.status === 'live' || streamStatus?.status === 'starting';
   const canRestart = streamStatus?.status === 'error' || streamStatus?.status === 'offline';
-
-  // Debug logging
-  console.log('StreamControls Debug:', {
-    streamStatus: streamStatus?.status,
-    canStart,
-    canStop,
-    canPause,
-    canRestart
-  });
 
   return (
     <div className="flex flex-wrap gap-3">
@@ -137,17 +108,7 @@ export default function StreamControls() {
         </Button>
       )}
 
-      {canPause && (
-        <Button
-          onClick={() => pauseStreamMutation.mutate()}
-          disabled={isLoading}
-          variant="outline"
-          className="flex-1"
-        >
-          <Pause className="h-4 w-4 mr-2" />
-          Pause
-        </Button>
-      )}
+
 
       {canRestart && (
         <Button
