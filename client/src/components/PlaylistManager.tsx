@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { GripVertical, Play, Edit, Trash2, Plus, CheckCircle, Circle } from "lucide-react";
+import { useState, useRef } from "react";
+import { GripVertical, Play, Edit, Trash2, Plus, CheckCircle, Circle, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Video, StreamStatus } from "@shared/schema";
@@ -14,6 +14,7 @@ export default function PlaylistManager() {
   const [draggedItem, setDraggedItem] = useState<number | null>(null);
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -103,6 +104,41 @@ export default function PlaylistManager() {
     },
   });
 
+  const uploadVideoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('video', file);
+      formData.append('title', file.name);
+      formData.append('duration', '00:00');
+      
+      const response = await fetch('/api/videos', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Upload failed');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
+      toast({
+        title: "Success",
+        description: "Video uploaded successfully!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to upload video",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleDragStart = (e: React.DragEvent, id: number) => {
     setDraggedItem(id);
     e.dataTransfer.effectAllowed = 'move';
@@ -157,6 +193,43 @@ export default function PlaylistManager() {
       : null;
   };
 
+  const handleFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      
+      // Validate file type
+      const allowedTypes = ['video/mp4', 'video/avi', 'video/mov', 'video/quicktime'];
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: "Error",
+          description: "Invalid file type. Only MP4, AVI, and MOV files are allowed.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Validate file size (500MB limit)
+      if (file.size > 500 * 1024 * 1024) {
+        toast({
+          title: "Error",
+          description: "File size too large. Maximum size is 500MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      uploadVideoMutation.mutate(file);
+    }
+    
+    // Reset input
+    e.target.value = '';
+  };
+
   const handleSaveEdit = () => {
     if (editingVideo && editTitle.trim()) {
       updateVideoMutation.mutate({ id: editingVideo.id, title: editTitle.trim() });
@@ -208,9 +281,24 @@ export default function PlaylistManager() {
               Live Stream
             </Badge>
           )}
-          <Button size="sm" variant="outline" title="Upload new video">
-            <Plus className="h-4 w-4 mr-1" />
-            Upload
+          <Button 
+            size="sm" 
+            variant="outline" 
+            title="Upload new video"
+            onClick={handleFileUpload}
+            disabled={uploadVideoMutation.isPending}
+          >
+            {uploadVideoMutation.isPending ? (
+              <>
+                <Upload className="h-4 w-4 mr-1 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-1" />
+                Upload
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -352,6 +440,15 @@ export default function PlaylistManager() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="video/mp4,video/avi,video/mov,video/quicktime"
+        style={{ display: 'none' }}
+      />
     </div>
   );
 }
