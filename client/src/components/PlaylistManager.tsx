@@ -5,9 +5,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Video } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function PlaylistManager() {
   const [draggedItem, setDraggedItem] = useState<number | null>(null);
+  const [editingVideo, setEditingVideo] = useState<Video | null>(null);
+  const [editTitle, setEditTitle] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -51,6 +56,47 @@ export default function PlaylistManager() {
     },
   });
 
+  const updateVideoMutation = useMutation({
+    mutationFn: async ({ id, title }: { id: number; title: string }) => {
+      await apiRequest('PUT', `/api/videos/${id}`, { title });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
+      setEditingVideo(null);
+      toast({
+        title: "Success",
+        description: "Video updated successfully!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update video",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const setCurrentVideoMutation = useMutation({
+    mutationFn: async (videoId: number) => {
+      await apiRequest('POST', '/api/stream/set-current', { videoId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/stream-status'] });
+      toast({
+        title: "Success",
+        description: "Video set as current!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to set current video",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleDragStart = (e: React.DragEvent, id: number) => {
     setDraggedItem(id);
     e.dataTransfer.effectAllowed = 'move';
@@ -82,6 +128,24 @@ export default function PlaylistManager() {
   const handleDeleteVideo = (id: number) => {
     if (confirm('Are you sure you want to delete this video?')) {
       deleteVideoMutation.mutate(id);
+    }
+  };
+
+  const handleEditVideo = (id: number) => {
+    const video = videos.find(v => v.id === id);
+    if (video) {
+      setEditingVideo(video);
+      setEditTitle(video.title);
+    }
+  };
+
+  const handlePlayVideo = (id: number) => {
+    setCurrentVideoMutation.mutate(id);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingVideo && editTitle.trim()) {
+      updateVideoMutation.mutate({ id: editingVideo.id, title: editTitle.trim() });
     }
   };
 
@@ -147,10 +211,22 @@ export default function PlaylistManager() {
                 <p className="text-xs text-gray-500">{video.duration}</p>
               </div>
               <div className="flex items-center space-x-2">
-                <Button size="sm" variant="ghost" className="p-1 h-8 w-8">
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="p-1 h-8 w-8"
+                  onClick={() => handlePlayVideo(video.id)}
+                  title="Play this video"
+                >
                   <Play className="h-4 w-4 text-primary" />
                 </Button>
-                <Button size="sm" variant="ghost" className="p-1 h-8 w-8">
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="p-1 h-8 w-8"
+                  onClick={() => handleEditVideo(video.id)}
+                  title="Edit video"
+                >
                   <Edit className="h-4 w-4 text-warning" />
                 </Button>
                 <Button 
@@ -167,6 +243,34 @@ export default function PlaylistManager() {
           ))}
         </div>
       )}
+
+      {/* Edit Video Dialog */}
+      <Dialog open={!!editingVideo} onOpenChange={() => setEditingVideo(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Video</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Enter video title"
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setEditingVideo(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={updateVideoMutation.isPending}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

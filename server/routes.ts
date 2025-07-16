@@ -239,6 +239,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/stream/set-current", async (req, res) => {
+    try {
+      const { videoId } = req.body;
+      
+      if (!videoId) {
+        return res.status(400).json({ message: "Video ID is required" });
+      }
+
+      const video = await storage.getVideo(videoId);
+      if (!video) {
+        return res.status(404).json({ message: "Video not found" });
+      }
+
+      const currentStatus = await storage.getStreamStatus();
+      const status = await storage.createOrUpdateStreamStatus({
+        status: currentStatus?.status || 'offline',
+        viewerCount: currentStatus?.viewerCount || 0,
+        uptime: currentStatus?.uptime || '00:00:00',
+        currentVideoId: videoId,
+        startedAt: currentStatus?.startedAt || null,
+      });
+
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to set current video" });
+    }
+  });
+
   app.post("/api/stream/test", async (req, res) => {
     try {
       // Mock connection test - simulate success/failure

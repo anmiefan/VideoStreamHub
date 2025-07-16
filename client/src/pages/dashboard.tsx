@@ -5,6 +5,7 @@ import PlaylistManager from "@/components/PlaylistManager";
 import StreamStatus from "@/components/StreamStatus";
 import StreamConfig from "@/components/StreamConfig";
 import CurrentlyPlaying from "@/components/CurrentlyPlaying";
+import SettingsPanel from "@/components/SettingsPanel";
 import { useQuery } from "@tanstack/react-query";
 import { StreamStatus as StreamStatusType } from "@shared/schema";
 
@@ -83,9 +84,7 @@ export default function Dashboard() {
                 <Clock className="h-4 w-4" />
                 <span>{formatTime(currentTime)}</span>
               </div>
-              <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                <Settings className="h-5 w-5" />
-              </button>
+              <SettingsPanel />
             </div>
           </div>
         </div>
