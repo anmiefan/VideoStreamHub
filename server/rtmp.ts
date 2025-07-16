@@ -14,6 +14,7 @@ export interface RTMPConfig {
 export class RTMPStreamManager {
   private activeStreams: Map<string, ChildProcess> = new Map();
   private streamConfigs: Map<string, RTMPConfig> = new Map();
+  private loopEnabled: boolean = false;
 
   async startStream(videoId: number, config: RTMPConfig): Promise<boolean> {
     try {
@@ -49,14 +50,20 @@ export class RTMPStreamManager {
         log(`FFmpeg process exited with code ${code}`);
         this.activeStreams.delete(streamKey);
         
-        // Update stream status to offline
-        storage.createOrUpdateStreamStatus({
-          status: 'offline',
-          viewerCount: 0,
-          uptime: '00:00:00',
-          currentVideoId: null,
-          startedAt: null,
-        });
+        // If loop is enabled, automatically play next video
+        if (this.loopEnabled) {
+          this.playNextVideo(videoId, config);
+        } else {
+          // Update stream status to offline
+          storage.createOrUpdateStreamStatus({
+            status: 'offline',
+            viewerCount: 0,
+            uptime: '00:00:00',
+            currentVideoId: null,
+            startedAt: null,
+            loopPlaylist: false,
+          });
+        }
       });
       
       ffmpegProcess.on('error', (error) => {
@@ -70,6 +77,7 @@ export class RTMPStreamManager {
           uptime: '00:00:00',
           currentVideoId: null,
           startedAt: null,
+          loopPlaylist: false,
         });
       });
       
@@ -113,6 +121,61 @@ export class RTMPStreamManager {
 
   getActiveStreams(): string[] {
     return Array.from(this.activeStreams.keys());
+  }
+
+  setLoopEnabled(enabled: boolean): void {
+    this.loopEnabled = enabled;
+  }
+
+  isLoopEnabled(): boolean {
+    return this.loopEnabled;
+  }
+
+  private async playNextVideo(currentVideoId: number, config: RTMPConfig): Promise<void> {
+    try {
+      // Get all videos ordered by playlist order
+      const videos = await storage.getVideos();
+      if (videos.length === 0) {
+        log('No videos available for loop playback');
+        return;
+      }
+
+      // Find current video index
+      const currentIndex = videos.findIndex(v => v.id === currentVideoId);
+      
+      // Get next video (loop to first if at end)
+      const nextIndex = (currentIndex + 1) % videos.length;
+      const nextVideo = videos[nextIndex];
+
+      log(`Loop playback: Moving from video ${currentVideoId} to video ${nextVideo.id} (${nextVideo.title})`);
+
+      // Update stream status with next video
+      await storage.createOrUpdateStreamStatus({
+        status: 'live',
+        viewerCount: Math.floor(Math.random() * 2000) + 100,
+        uptime: '00:00:00',
+        currentVideoId: nextVideo.id,
+        startedAt: new Date(),
+        loopPlaylist: true,
+      });
+
+      // Start streaming next video with a slight delay
+      setTimeout(() => {
+        this.startStream(nextVideo.id, config);
+      }, 1000);
+
+    } catch (error) {
+      log(`Error in loop playback: ${error}`);
+      // Fall back to offline status
+      await storage.createOrUpdateStreamStatus({
+        status: 'offline',
+        viewerCount: 0,
+        uptime: '00:00:00',
+        currentVideoId: null,
+        startedAt: null,
+        loopPlaylist: false,
+      });
+    }
   }
 
   private buildFFmpegArgs(videoPath: string, config: RTMPConfig): string[] {

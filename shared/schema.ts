@@ -32,6 +32,7 @@ export const streamStatus = pgTable("stream_status", {
   uptime: text("uptime").default("00:00:00"),
   currentVideoId: integer("current_video_id"),
   startedAt: timestamp("started_at"),
+  loopPlaylist: boolean("loop_playlist").default(false),
 });
 
 export const insertVideoSchema = createInsertSchema(videos).omit({

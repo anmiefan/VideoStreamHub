@@ -36,6 +36,7 @@ export class DatabaseStorage implements IStorage {
           uptime: '00:00:00',
           currentVideoId: null,
           startedAt: null,
+          loopPlaylist: false,
         });
       }
     } catch (error) {

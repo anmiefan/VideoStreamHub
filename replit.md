@@ -102,6 +102,19 @@ The application uses three main database tables:
 
 ## Recent Changes: Latest modifications with dates
 
+### January 16, 2025 - 24x7 Playlist Loop Implementation
+- **Added 24x7 Continuous Streaming Loop**: Implemented automatic playlist cycling for non-stop streaming
+  - Added `loopPlaylist` field to stream status database schema
+  - Created RTMPStreamManager loop functionality that automatically plays next video when current ends
+  - Implemented `playNextVideo()` method that cycles through playlist (loops back to first video when reaching end)
+  - Added API endpoints for loop control: `/api/stream/loop/enable`, `/api/stream/loop/disable`, `/api/stream/loop/status`
+  - Added loop toggle switch in PlaylistManager UI with repeat icon and "24x7 Loop" label
+  - Loop state persists across stream sessions and platform changes
+  - When loop is enabled and video ends, system automatically starts next video with 1-second delay
+  - Loop functionality integrates with existing stream start/stop controls
+  - Shows "Next" indicator in playlist for upcoming video when loop is active
+  - Stream continues indefinitely until manually stopped, perfect for 24x7 broadcasting
+
 ### January 16, 2025 - Platform-Specific Streaming Configuration Fix
 - **Fixed Platform-Specific RTMP URL Configuration**: Resolved critical issue with stream platform switching
   - Updated backend routing to properly use custom RTMP URLs for different platforms

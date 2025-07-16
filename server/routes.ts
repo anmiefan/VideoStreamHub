@@ -224,12 +224,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "Failed to start RTMP stream" });
       }
 
+      // Set loop enabled based on current status
+      rtmpManager.setLoopEnabled(streamStatus?.loopPlaylist || false);
+
       const status = await storage.createOrUpdateStreamStatus({
         status: 'live',
         viewerCount: Math.floor(Math.random() * 2000) + 100,
         uptime: '00:00:00',
         currentVideoId: currentVideoId,
         startedAt: new Date(),
+        loopPlaylist: streamStatus?.loopPlaylist || false,
       });
 
       res.json(status);
@@ -243,12 +247,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Stop all RTMP streams
       rtmpManager.stopAllStreams();
 
+      // Disable loop when stopping stream
+      rtmpManager.setLoopEnabled(false);
+
       const status = await storage.createOrUpdateStreamStatus({
         status: 'offline',
         viewerCount: 0,
         uptime: '00:00:00',
         currentVideoId: null,
         startedAt: null,
+        loopPlaylist: false,
       });
 
       res.json(status);
@@ -272,6 +280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         uptime: '00:00:00',
         currentVideoId: videos[0].id,
         startedAt: new Date(),
+        loopPlaylist: false,
       });
 
       res.json(status);
@@ -300,11 +309,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         uptime: currentStatus?.uptime || '00:00:00',
         currentVideoId: videoId,
         startedAt: currentStatus?.startedAt || null,
+        loopPlaylist: currentStatus?.loopPlaylist || false,
       });
 
       res.json(status);
     } catch (error) {
       res.status(500).json({ message: "Failed to set current video" });
+    }
+  });
+
+  // Loop control endpoints
+  app.post("/api/stream/loop/enable", async (req, res) => {
+    try {
+      const currentStatus = await storage.getStreamStatus();
+      const status = await storage.createOrUpdateStreamStatus({
+        status: currentStatus?.status || 'offline',
+        viewerCount: currentStatus?.viewerCount || 0,
+        uptime: currentStatus?.uptime || '00:00:00',
+        currentVideoId: currentStatus?.currentVideoId || null,
+        startedAt: currentStatus?.startedAt || null,
+        loopPlaylist: true,
+      });
+
+      // Update RTMP manager if stream is active
+      if (status.status === 'live') {
+        rtmpManager.setLoopEnabled(true);
+      }
+
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to enable playlist loop" });
+    }
+  });
+
+  app.post("/api/stream/loop/disable", async (req, res) => {
+    try {
+      const currentStatus = await storage.getStreamStatus();
+      const status = await storage.createOrUpdateStreamStatus({
+        status: currentStatus?.status || 'offline',
+        viewerCount: currentStatus?.viewerCount || 0,
+        uptime: currentStatus?.uptime || '00:00:00',
+        currentVideoId: currentStatus?.currentVideoId || null,
+        startedAt: currentStatus?.startedAt || null,
+        loopPlaylist: false,
+      });
+
+      // Update RTMP manager
+      rtmpManager.setLoopEnabled(false);
+
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to disable playlist loop" });
+    }
+  });
+
+  app.get("/api/stream/loop/status", async (req, res) => {
+    try {
+      const status = await storage.getStreamStatus();
+      res.json({ 
+        loopEnabled: status?.loopPlaylist || false,
+        rtmpLoopEnabled: rtmpManager.isLoopEnabled()
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get loop status" });
     }
   });
 
